@@ -1,0 +1,14 @@
+requests
+pandas
+pycryptodome
+openpyxl
+python-multipart
+fastapi
+uvicorn
+python-dateutil
+aiohttp
+aioredis
+aiojobs
+fastapi-scheduler
+aiosqlite
+redis
