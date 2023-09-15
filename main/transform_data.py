@@ -32,15 +32,15 @@ def readCSV():
             value2 = row[column2_name]
             value3 = row[column3_name]
             count += 1
-            if count == 1000000:
+            if count == 100000:
                 break
 
             
             # Combine the values into a single string
-            combined_string = f'{value1} - {value2}' 
+            combined_string = f'{value1}_{value2}' 
             
             # Append the combined string to the list
-            combined_strings.append([combined_string, value3])
+            combined_strings.append([combined_string, 5])
     end_time = time.time()
     print("Total time take -> ", end_time - start_time)
     print(len(combined_strings))
