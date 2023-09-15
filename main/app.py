@@ -10,7 +10,7 @@ redis_port = 6379  # Replace with your Redis server's port number
 redis_db = 0  # Replace with your desired Redis database number
 
 # Connect to Redis
-r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+#r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
 
 # # Initialize Trie
 # trie = Trie()
@@ -25,22 +25,10 @@ r = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
 #     trie.insert(item)
 
 print("reading app.py file")
+sorted_set_name = 'my_sorted_set'
 
 
 def main(searchString, trie, list_of_lists):
-
-    # end_time = time.time()
-    # print("Time taken for trie -> insert action ->", end_time - start_time)
-
-    # start_time = time.time()
-    # print("Prefix 'ba'", trie.autocomplete("ba"))
-    # end_time = time.time()
-    # print("Time taken for trie -> autosearch action ->", end_time - start_time)
-    
-    # print("trie", trie)
-    # print("trie.root", trie.root)
-    # print("trie.root.children", trie.root.children)
-
 
     start_time = time.time()
     matched_string_list = trie.autocomplete(searchString)
@@ -50,7 +38,7 @@ def main(searchString, trie, list_of_lists):
 
     start_time = time.time()
     # Sort the list based on the count element (the numeric value)
-    sorted_data = sorted(matched_string_list, key=lambda x: x[1])
+    sorted_data = sorted(matched_string_list, key=lambda x: x[1], reverse=True)
     end_time = time.time()
     print("Time taken for sort -> sorted_data ->", end_time) 
     print("Sort result", len(sorted_data), sorted_data[0:10]) 
@@ -58,22 +46,60 @@ def main(searchString, trie, list_of_lists):
     return sorted_data[0:10]
 
 
-    # # Insert the list of lists into a sorted set
-    # for item in list_of_lists:
-    #     value = item[0]  # Assuming the first element is the value to store
-    #     score = item[1]  # Assuming the second element is the score
-    #     r.zadd('my_sorted_set', {value: score})
-    # end_time = time.time()
-    # print("Time taken for redis -> store action ->", end_time - start_time)
+class SearchClass:
+    # _instance = None
 
-    # # Retrieve the sorted set
-    # sorted_set_values = r.zrange('my_sorted_set', 0, -1, withscores=True)
-    # print("Type of data retrived", type(sorted_set_values), sorted_set_values[0])
-    # end_time = time.time()
-    # print("Time taken for redis -> retrive action ->", end_time - start_time)
+    # def __new__(cls):
+    #     if cls._instance is None:
+    #         cls._instance = super(SearchClass, cls).__new__(cls)
+    #         cls._instance.trie = Trie()
+    #         cls._instance.list_of_lists = readCSV()
+    #     return cls._instance
 
+    def __init__(self) -> None:
+        self.trie = Trie()
+        self.list_of_lists = readCSV()
 
+    def search(self, searchString):
+        start_time = time.time()
+        matched_string_list = self.trie.autocomplete(searchString)
+        end_time = time.time()
+        print("Time taken for trie -> autosearch action ->", end_time - start_time) 
 
+        start_time = time.time()
+        # Sort the list based on the count element (the numeric value)
+        sorted_data = sorted(matched_string_list, key=lambda x: x[1], reverse=True)
+        end_time = time.time()
+        print("Time taken for sort -> sorted_data ->", end_time) 
+        print("Sort result", len(sorted_data), sorted_data[0:10]) 
 
-# if __name__ == "__main__":
-#     main()
+        return sorted_data[0:10]
+    
+    def updateTrie(self, redis):
+        try:
+            self.list_of_lists = redis.zrange(sorted_set_name, 0, -1, withscores=True)
+            # print("redis result -> ", self.list_of_lists[0:10])
+            # self.trie = Trie()
+            for item in self.list_of_lists[0:2]:
+                print('item -> ', item[0].decode('utf-8'), item[1])
+            for item in self.list_of_lists:
+                i = [item[0].decode('utf-8'), item[1]]
+                self.trie.insert(i)
+
+        except Exception as e:
+            print("Exception -> ", str(e))
+    
+    def pushToRedis(self, redis):
+        try:
+            for item in self.list_of_lists:
+                self.trie.insert(item)
+                redis.zadd(sorted_set_name, {item[0]: item[1]})
+        except Exception as e:
+            print("Exception -> ", str(e))
+
+    # def updateRedis(self, redis):
+    #     try:
+
+    #     except Exception as e:
+        
+
