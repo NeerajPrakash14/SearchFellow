@@ -36,7 +36,7 @@ class Trie:
         node = self.root
 
         # Traverse to the last node of the prefix
-        for char in prefix:
+        for char in prefix: 
             if char not in node.children:
                 return results
             node = node.children[char]
