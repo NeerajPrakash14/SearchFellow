@@ -61,6 +61,8 @@ class SearchClass:
         self.list_of_lists = readCSV()
 
     def search(self, searchString):
+        print("object id -> self.trie-> ", id(self.trie))
+        print("object id -> self.list_of_lists-> ", id(self.list_of_lists))
         start_time = time.time()
         matched_string_list = self.trie.autocomplete(searchString)
         end_time = time.time()
@@ -72,19 +74,25 @@ class SearchClass:
         end_time = time.time()
         print("Time taken for sort -> sorted_data ->", end_time) 
         print("Sort result", len(sorted_data), sorted_data[0:10]) 
+        print("object id -> self.trie-> ", id(self.trie))
+        print("object id -> self.list_of_lists-> ", id(self.list_of_lists))
 
         return sorted_data[0:10]
     
     def updateTrie(self, redis):
         try:
+            print("object id -> self.trie-> ", id(self.trie))
+            print("object id -> self.list_of_lists-> ", id(self.list_of_lists))
             self.list_of_lists = redis.zrange(sorted_set_name, 0, -1, withscores=True)
             # print("redis result -> ", self.list_of_lists[0:10])
-            # self.trie = Trie()
+            self.trie = Trie()
             for item in self.list_of_lists[0:2]:
                 print('item -> ', item[0].decode('utf-8'), item[1])
             for item in self.list_of_lists:
                 i = [item[0].decode('utf-8'), item[1]]
                 self.trie.insert(i)
+            print("object id -> self.trie-> ", id(self.trie))
+            print("object id -> self.list_of_lists-> ", id(self.list_of_lists))
 
         except Exception as e:
             print("Exception -> ", str(e))
