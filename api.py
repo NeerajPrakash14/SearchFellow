@@ -46,6 +46,9 @@ redis = redis.Redis(host="localhost", port=6379, db=0)
 sorted_set_name = 'my_sorted_set'
 test_var = "1"
 
+# Event to signal when the calculate function is done
+calculate_done = threading.Event()
+
 print("reading api.py", os.getpid())
 # Initialize Trie
 search = SearchClass()
@@ -55,6 +58,8 @@ search.updateTrie(redis)
 def get_search_object():
     return search
 
+def get_test_object():
+    return test_var
 
 
 def print_process_id():
@@ -62,26 +67,43 @@ def print_process_id():
 
 # Start the scheduler
 def start_scheduler():
-    schedule.every(1).minutes.do(schedule_build_trie, redis)
+    schedule.every(1).minutes.do(schedule_build_trie, redis, search)
     while True:
         schedule.run_pending()
         time.sleep(1)
 
 
-def schedule_build_trie(redis):
-    global search
+def schedule_build_trie(redis, search):
+    # global search
+    print("thread id -> ", threading.get_ident())
     global test_var
+    # test_var = get_test_object()
+    print("test_var -> ", id(test_var),  test_var )
+    test_var = "2"
+    print("test_var -> ", id(test_var),  test_var )
+
     print('starting schedule_build_trie')
     print_process_id()
-    print("test_var -> ", id(test_var), test_var )
-    test_var = "2"
-    print("app.test -> ", id(app.test), app.test )
-    app.test = "2"
+    all_global_vars = globals().keys()
+    print("Global Variables:")
+    # for var in all_global_vars:
+    #     print(var)
+    #     if var == 'search':
+    #         print("Global Variables -> search ", var, id(all_global_vars['search']))
 
-    print("object id -> ", id(search))
+    # local_vars = schedule_build_trie.__code__.co_varnames
+    # print("\nLocal Variables (in my_function):")
+    # for var in local_vars:
+    #     print(var)
+    #     if var == 'search':
+    #         print("nLocal Variables -> search ", var, id(local_vars['search']))
+    print("search object id -> ", id(search))
+
+    print("search.trie object id -> ", id(search.trie))
     search.updateTrie(redis)
-    print("object id -> ", id(search))
+    print("search object id -> ", id(search))
     res = search.search("Cereal_504055583")
+    calculate_done.set()
     print("search result -> ", res)
     print('end schedule_build_trie')
 
@@ -143,16 +165,32 @@ async def update_item_count(updatecount: UpdateCount):
 @app.get("/search/{searchString}")
 async def get_search_string(searchString: str):
     try:
+        print("thread id -> ", threading.get_ident())
         global test_var
-        search = get_search_object() # adding this as a dependency is not mandatory. This simple direct access to global var will work
-        print('calling endpoint', searchString)
-        print("object id -> ", id(search))
-        print_process_id()
+        global search
         print("test_var -> ", id(test_var),  test_var )
         test_var = "3"
-        print("app.test -> ", id(app.test), app.test )
-        app.test = "3"
+        search = get_search_object() # adding this as a dependency is not mandatory. This simple direct access to global var will work
+        print('calling endpoint', searchString)
+        print("object id -> ", id(search.trie))
+        print_process_id()
+        print("test_var -> ", id(test_var),  test_var )
+        # test_var = "3"
+        # print("app.test -> ", id(app.test), app.test )
+        # app.test = "3"
+        # all_global_vars = globals().keys()
+        # print("Global Variables:")
+        # for var in all_global_vars:
+        #     print(var)
+        #     if var == 'search':
+        #         print("Global Variables -> search ", var, id(all_global_vars['search']))
 
+        # local_vars = get_search_string.__code__.co_varnames
+        # print("\nLocal Variables (in my_function):")
+        # for var in local_vars:
+        #     print(var)
+        #     if var == 'search':
+        #         print("nLocal Variables -> search ", var, id(local_vars['search']))
         res = search.search(searchString)
         status_code = 200
         body = {'result': res}
@@ -245,4 +283,21 @@ if __name__ == "__main__":
     scheduler_thread.start()
 
     uvicorn.run("api:app", host="0.0.0.0", port=8002)
+
+    # Main thread
+    while True:
+        # Wait for the calculation to finish
+        calculate_done.wait()
+        
+        # Print the updated variable
+        print("Updated test_var:", test_var)
+        
+        # Reset the event for the next calculation
+        calculate_done.clear()
+
+        # Sleep or perform other actions as needed
+        time.sleep(10)  #
+
+    # start_scheduler()
+
 
