@@ -67,20 +67,21 @@ def print_process_id():
 
 # Start the scheduler
 def start_scheduler():
-    schedule.every(1).minutes.do(schedule_build_trie, redis, search)
+    schedule.every(1).minutes.do(schedule_build_trie, redis)
     while True:
         schedule.run_pending()
         time.sleep(1)
 
 
-def schedule_build_trie(redis, search):
-    # global search
+def schedule_build_trie(redis):
+    global search
+    time.sleep(20)
     print("thread id -> ", threading.get_ident())
     global test_var
     # test_var = get_test_object()
-    print("test_var -> ", id(test_var),  test_var )
-    test_var = "2"
-    print("test_var -> ", id(test_var),  test_var )
+    # print("test_var -> ", id(test_var),  test_var )
+    # test_var = "2"
+    # print("test_var -> ", id(test_var),  test_var )
 
     print('starting schedule_build_trie')
     print_process_id()
@@ -97,14 +98,14 @@ def schedule_build_trie(redis, search):
     #     print(var)
     #     if var == 'search':
     #         print("nLocal Variables -> search ", var, id(local_vars['search']))
-    print("search object id -> ", id(search))
+    # print("search object id -> ", id(search))
 
-    print("search.trie object id -> ", id(search.trie))
+    # print("search.trie object id -> ", id(search.trie))
     search.updateTrie(redis)
-    print("search object id -> ", id(search))
+    # print("search object id -> ", id(search))
     res = search.search("Cereal_504055583")
-    calculate_done.set()
-    print("search result -> ", res)
+    # calculate_done.set()
+    # print("search result -> ", res)
     print('end schedule_build_trie')
 
 
@@ -166,15 +167,16 @@ async def update_item_count(updatecount: UpdateCount):
 async def get_search_string(searchString: str):
     try:
         print("thread id -> ", threading.get_ident())
-        global test_var
-        global search
-        print("test_var -> ", id(test_var),  test_var )
-        test_var = "3"
-        search = get_search_object() # adding this as a dependency is not mandatory. This simple direct access to global var will work
-        print('calling endpoint', searchString)
-        print("object id -> ", id(search.trie))
+        time.sleep(5)
+        # global test_var
+        # global search
+        # print("test_var -> ", id(test_var),  test_var )
+        # test_var = "3"
+        # search = get_search_object() 
+        # print('calling endpoint', searchString)
+        # print("object id -> ", id(search.trie))
         print_process_id()
-        print("test_var -> ", id(test_var),  test_var )
+        # print("test_var -> ", id(test_var),  test_var )
         # test_var = "3"
         # print("app.test -> ", id(app.test), app.test )
         # app.test = "3"
@@ -282,22 +284,22 @@ if __name__ == "__main__":
     scheduler_thread = threading.Thread(target= start_scheduler)
     scheduler_thread.start()
 
-    uvicorn.run("api:app", host="0.0.0.0", port=8002)
+    uvicorn.run("api:app", host="0.0.0.0", port=8002, workers=1)
 
-    # Main thread
-    while True:
-        # Wait for the calculation to finish
-        calculate_done.wait()
+    # # Main thread
+    # while True:
+    #     # Wait for the calculation to finish
+    #     calculate_done.wait()
         
-        # Print the updated variable
-        print("Updated test_var:", test_var)
+    #     # Print the updated variable
+    #     print("Updated test_var:", test_var)
         
-        # Reset the event for the next calculation
-        calculate_done.clear()
+    #     # Reset the event for the next calculation
+    #     calculate_done.clear()
 
-        # Sleep or perform other actions as needed
-        time.sleep(10)  #
+    #     # Sleep or perform other actions as needed
+    #     time.sleep(10)  #
 
-    # start_scheduler()
+    # # start_scheduler()
 
 
