@@ -47,18 +47,18 @@ def main(searchString, trie, list_of_lists):
 
 
 class SearchClass:
-    # _instance = None
+    _instance = None
 
-    # def __new__(cls):
-    #     if cls._instance is None:
-    #         cls._instance = super(SearchClass, cls).__new__(cls)
-    #         cls._instance.trie = Trie()
-    #         cls._instance.list_of_lists = readCSV()
-    #     return cls._instance
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(SearchClass, cls).__new__(cls)
+            cls._instance.trie = Trie()
+            cls._instance.list_of_lists = readCSV()
+        return cls._instance
 
-    def __init__(self) -> None:
-        self.trie = Trie()
-        self.list_of_lists = readCSV()
+    # def __init__(self) -> None:
+    #     self.trie = Trie()
+    #     self.list_of_lists = readCSV()
 
     def search(self, searchString):
         print("object id -> self.trie-> ", id(self.trie))
