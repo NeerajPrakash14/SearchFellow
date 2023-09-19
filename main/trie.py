@@ -40,9 +40,6 @@ class Trie:
             if char not in node.children:
                 return results
             node = node.children[char]
-        
-        serialized_obj = pickle.dumps(node)
-        redis.set(id, serialized_obj)
 
         # Perform a depth-first search to find all words with the given prefix
         self._find_words_with_prefix(node, prefix, results)
