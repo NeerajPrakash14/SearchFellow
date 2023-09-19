@@ -12,7 +12,7 @@ import time
 import threading
 import schedule
 from datetime import date
-
+import pickle
 
 import pandas as pd
 from fastapi import FastAPI, Request, Form, UploadFile, File, Depends
@@ -54,6 +54,7 @@ print("reading api.py", os.getpid())
 search = SearchClass()
 search.pushToRedis(redis)
 search.updateTrie(redis)
+trie_global = search.trie
 
 def get_search_object():
     return search
@@ -64,29 +65,55 @@ def get_test_object():
 
 def print_process_id():
     print("Process ID -> ", os.getpid())
+def print_thread_id():
+    print("Thread id -> ", threading.get_ident())
+    
+
+def autocomplete(prefix, redis, id, root):
+    results = []
+    node = root
+
+    # Traverse to the last node of the prefix
+    for char in prefix: 
+        if char not in node.children:
+            return results
+        node = node.children[char]
+    
+    serialized_obj = pickle.dumps(node)
+    redis.set(id, serialized_obj)
+
+    # Perform a depth-first search to find all words with the given prefix
+    find_words_with_prefix(node, prefix, results)
+    return results
+
+def find_words_with_prefix(node, current_prefix, results):
+    if node.is_end_of_word:
+        results.append([current_prefix, node.count])
+    for char, child_node in node.children.items():
+        find_words_with_prefix(child_node, current_prefix + char, results)
 
 # Start the scheduler
 def start_scheduler():
-    schedule.every(1).minutes.do(schedule_build_trie, redis)
+    schedule.every(3).minutes.do(schedule_build_trie, redis)
     while True:
         schedule.run_pending()
         time.sleep(1)
 
 
 def schedule_build_trie(redis):
+    print('start schedule_build_trie')
     global search
-    time.sleep(20)
-    print("thread id -> ", threading.get_ident())
-    global test_var
+    # time.sleep(20)
+    print_process_id()
+    print_thread_id()
+    # global test_var
     # test_var = get_test_object()
     # print("test_var -> ", id(test_var),  test_var )
     # test_var = "2"
     # print("test_var -> ", id(test_var),  test_var )
 
-    print('starting schedule_build_trie')
-    print_process_id()
-    all_global_vars = globals().keys()
-    print("Global Variables:")
+    # all_global_vars = globals().keys()
+    # print("Global Variables:")
     # for var in all_global_vars:
     #     print(var)
     #     if var == 'search':
@@ -163,11 +190,22 @@ async def update_item_count(updatecount: UpdateCount):
     return JSONResponse(body, status_code)
 
 
-@app.get("/search/{searchString}")
-async def get_search_string(searchString: str):
+@app.get("/search/{searchString}/{id}")
+async def get_search_string(searchString: str, id: int):
     try:
+        print_process_id()
         print("thread id -> ", threading.get_ident())
-        time.sleep(5)
+        print("id -> ", id)
+        trie_local = None
+        retrieved_data = redis.get(id)
+        if retrieved_data is not None:
+            deserialized_obj = pickle.loads(retrieved_data)
+            trie_local = deserialized_obj
+            print("obj -> ", trie)  
+        else:
+            print("Key not found in Redis")
+            trie_local = trie_global
+        # time.sleep(5)
         # global test_var
         # global search
         # print("test_var -> ", id(test_var),  test_var )
@@ -175,7 +213,6 @@ async def get_search_string(searchString: str):
         # search = get_search_object() 
         # print('calling endpoint', searchString)
         # print("object id -> ", id(search.trie))
-        print_process_id()
         # print("test_var -> ", id(test_var),  test_var )
         # test_var = "3"
         # print("app.test -> ", id(app.test), app.test )
@@ -193,7 +230,20 @@ async def get_search_string(searchString: str):
         #     print(var)
         #     if var == 'search':
         #         print("nLocal Variables -> search ", var, id(local_vars['search']))
-        res = search.search(searchString)
+
+        # res = search_local.search(searchString)
+        matched_string_list = autocomplete(searchString, redis, id, trie_local)
+
+        start_time = time.time()
+        # Sort the list based on the count element (the numeric value)
+        sorted_data = sorted(matched_string_list, key=lambda x: x[1], reverse=True)
+        end_time = time.time()
+        print("Time taken for sort -> sorted_data ->", end_time) 
+        # print("Sort result", len(sorted_data), sorted_data[0:10]) 
+        # print("object id -> self.trie-> ", id(self.trie))
+        # print("object id -> self.list_of_lists-> ", id(self.list_of_lists))
+
+        return sorted_data[0:10]
         status_code = 200
         body = {'result': res}
 
