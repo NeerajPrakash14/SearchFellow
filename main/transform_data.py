@@ -32,7 +32,7 @@ def readCSV():
             value2 = row[column2_name]
             value3 = row[column3_name]
             count += 1
-            if count == 100000:
+            if count == 1000000:
                 break
 
             
