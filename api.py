@@ -51,10 +51,13 @@ calculate_done = threading.Event()
 
 print("reading api.py", os.getpid())
 # Initialize Trie
+redis.flushall()
+redis.set('test', 'Hello! This is a sample test string')
 search = SearchClass()
 search.pushToRedis(redis)
 search.updateTrie(redis)
-trie_global = search.trie
+trie_global = search.trie.root
+list_of_lists = readCSV()
 
 def get_search_object():
     return search
@@ -69,21 +72,28 @@ def print_thread_id():
     print("Thread id -> ", threading.get_ident())
     
 
-def autocomplete(prefix, redis, id, root):
+def autocomplete(prefix, redis, id, root, last_string, new_string):
+    print("*****START autocomplete*******", prefix, redis, id, root, last_string, new_string)
     results = []
     node = root
 
-    # Traverse to the last node of the prefix
-    for char in prefix: 
-        if char not in node.children:
-            return results
-        node = node.children[char]
+    if(prefix is not None or prefix != ""):
+        # Traverse to the last node of the prefix
+        for char in prefix: 
+            if char not in node.children:
+                return results
+            node = node.children[char]
     
+    print("before saving to redis -> ", node, node.children, node.is_end_of_word)
     serialized_obj = pickle.dumps(node)
     redis.set(id, serialized_obj)
+    redis.set(100, new_string)
+
 
     # Perform a depth-first search to find all words with the given prefix
     find_words_with_prefix(node, prefix, results)
+    print("*****END autocomplete*******")
+
     return results
 
 def find_words_with_prefix(node, current_prefix, results):
@@ -135,6 +145,122 @@ def schedule_build_trie(redis):
     # print("search result -> ", res)
     print('end schedule_build_trie')
 
+
+def find_difference(last, new):
+    print("*****find_difference*****", last, new)
+    difference = ""
+    for char in new:
+        if char not in last:
+            difference += char
+    return difference
+
+@app.get("/search/{searchString}/{id}")
+async def get_search_string(searchString: str, id: int):
+    try:
+        print_process_id()
+        print("thread id -> ", threading.get_ident())
+        print("id -> ", id)
+        trie_local = None
+        last_string = ""
+        retrieved_data = redis.get(id)
+        last_search_string = redis.get(100)
+        if retrieved_data is not None:
+            deserialized_obj = pickle.loads(retrieved_data)
+            trie_local = deserialized_obj
+            print("Key found in Redis")
+            # print("trie_local -> child node children-> ",trie_local.children['e'].children, trie_local.children['e'].is_end_of_word)  
+        else:
+            print("Key not found in Redis")
+            trie_local = trie_global
+        
+        if last_search_string is not None:
+            last_string = last_search_string.decode('utf-8')
+
+        print("trie_local -> ", trie_local, trie_local.children, trie_local.is_end_of_word)  
+        prefix = find_difference(last_string, searchString)
+        # time.sleep(5)
+        # global test_var
+        # global search
+        # print("test_var -> ", id(test_var),  test_var )
+        # test_var = "3"
+        # search = get_search_object() 
+        # print('calling endpoint', searchString)
+        # print("object id -> ", id(search.trie))
+        # print("test_var -> ", id(test_var),  test_var )
+        # test_var = "3"
+        # print("app.test -> ", id(app.test), app.test )
+        # app.test = "3"
+        # all_global_vars = globals().keys()
+        # print("Global Variables:")
+        # for var in all_global_vars:
+        #     print(var)
+        #     if var == 'search':
+        #         print("Global Variables -> search ", var, id(all_global_vars['search']))
+
+        # local_vars = get_search_string.__code__.co_varnames
+        # print("\nLocal Variables (in my_function):")
+        # for var in local_vars:
+        #     print(var)
+        #     if var == 'search':
+        #         print("nLocal Variables -> search ", var, id(local_vars['search']))
+
+        # res = search_local.search(searchString)
+        matched_string_list = autocomplete(prefix, redis, id, trie_local, last_string, searchString)
+
+        start_time = time.time()
+        # Sort the list based on the count element (the numeric value)
+        sorted_data = sorted(matched_string_list, key=lambda x: x[1], reverse=True)
+        end_time = time.time()
+        print("Time taken for sort -> sorted_data ->", end_time) 
+        # print("Sort result", len(sorted_data), sorted_data[0:10]) 
+        # print("object id -> self.trie-> ", id(self.trie))
+        # print("object id -> self.list_of_lists-> ", id(self.list_of_lists))
+
+        return sorted_data[0:10]
+        status_code = 200
+        body = {'result': res}
+
+    except Exception as e:
+        status_code = 500
+        body = {'error': "Exception(main): " + str(e)}
+
+    return JSONResponse(body, status_code)
+
+
+@app.get("/fetchfromredis")
+async def fetch_from_redis():
+    try:
+        print('calling endpoint - fetch_from_redis')
+        value = redis.get('test').decode('utf-8')
+        status_code = 200
+        body = {'result': value}
+
+    except Exception as e:
+        status_code = 500
+        body = {'error': "Exception(main): " + str(e)}
+
+    return JSONResponse(body, status_code)
+
+
+
+@app.get("/sort")
+async def sort_list():
+    try:
+        global search
+        print('calling endpoint - sort_list')
+        print("Length of list -> ", len(list_of_lists))
+        start_time = time.time()
+        sorted_data = sorted(list_of_lists, key=lambda x: x[1], reverse=True)
+        end_time = time.time()
+        print("Time taken for sort -> sorted_data ->", end_time - start_time) 
+        status_code = 200
+        body = {'result': sorted_data}
+
+    except Exception as e:
+        status_code = 500
+        body = {'error': "Exception(main): " + str(e)}
+
+    return JSONResponse(body, status_code)
 
 # health check
 @app.get('/health')
@@ -190,68 +316,6 @@ async def update_item_count(updatecount: UpdateCount):
     return JSONResponse(body, status_code)
 
 
-@app.get("/search/{searchString}/{id}")
-async def get_search_string(searchString: str, id: int):
-    try:
-        print_process_id()
-        print("thread id -> ", threading.get_ident())
-        print("id -> ", id)
-        trie_local = None
-        retrieved_data = redis.get(id)
-        if retrieved_data is not None:
-            deserialized_obj = pickle.loads(retrieved_data)
-            trie_local = deserialized_obj
-            print("obj -> ", trie)  
-        else:
-            print("Key not found in Redis")
-            trie_local = trie_global
-        # time.sleep(5)
-        # global test_var
-        # global search
-        # print("test_var -> ", id(test_var),  test_var )
-        # test_var = "3"
-        # search = get_search_object() 
-        # print('calling endpoint', searchString)
-        # print("object id -> ", id(search.trie))
-        # print("test_var -> ", id(test_var),  test_var )
-        # test_var = "3"
-        # print("app.test -> ", id(app.test), app.test )
-        # app.test = "3"
-        # all_global_vars = globals().keys()
-        # print("Global Variables:")
-        # for var in all_global_vars:
-        #     print(var)
-        #     if var == 'search':
-        #         print("Global Variables -> search ", var, id(all_global_vars['search']))
-
-        # local_vars = get_search_string.__code__.co_varnames
-        # print("\nLocal Variables (in my_function):")
-        # for var in local_vars:
-        #     print(var)
-        #     if var == 'search':
-        #         print("nLocal Variables -> search ", var, id(local_vars['search']))
-
-        # res = search_local.search(searchString)
-        matched_string_list = autocomplete(searchString, redis, id, trie_local)
-
-        start_time = time.time()
-        # Sort the list based on the count element (the numeric value)
-        sorted_data = sorted(matched_string_list, key=lambda x: x[1], reverse=True)
-        end_time = time.time()
-        print("Time taken for sort -> sorted_data ->", end_time) 
-        # print("Sort result", len(sorted_data), sorted_data[0:10]) 
-        # print("object id -> self.trie-> ", id(self.trie))
-        # print("object id -> self.list_of_lists-> ", id(self.list_of_lists))
-
-        return sorted_data[0:10]
-        status_code = 200
-        body = {'result': res}
-
-    except Exception as e:
-        status_code = 500
-        body = {'error': "Exception(main): " + str(e)}
-
-    return JSONResponse(body, status_code)
 
 @app.get("/add/{value}")
 async def add_to_redis(value: str):
@@ -332,9 +396,9 @@ if __name__ == "__main__":
 
      # Start the scheduler in a new thread
     scheduler_thread = threading.Thread(target= start_scheduler)
-    scheduler_thread.start()
+    # scheduler_thread.start()
 
-    uvicorn.run("api:app", host="0.0.0.0", port=8002, workers=1)
+    uvicorn.run("api:app", host="0.0.0.0", port=8002, reload=True, workers=1)
 
     # # Main thread
     # while True:
