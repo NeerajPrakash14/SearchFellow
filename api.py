@@ -400,20 +400,20 @@ if __name__ == "__main__":
 
     uvicorn.run("api:app", host="0.0.0.0", port=8002, reload=True, workers=1)
 
-    # # Main thread
-    # while True:
-    #     # Wait for the calculation to finish
-    #     calculate_done.wait()
+    # Main thread
+    while True:
+        # Wait for the calculation to finish
+        calculate_done.wait()
         
-    #     # Print the updated variable
-    #     print("Updated test_var:", test_var)
+        # Print the updated variable
+        print("Updated test_var:", test_var)
         
-    #     # Reset the event for the next calculation
-    #     calculate_done.clear()
+        # Reset the event for the next calculation
+        calculate_done.clear()
 
-    #     # Sleep or perform other actions as needed
-    #     time.sleep(10)  #
+        # Sleep or perform other actions as needed
+        time.sleep(10)  #
 
-    # # start_scheduler()
+    # start_scheduler()
 
 
