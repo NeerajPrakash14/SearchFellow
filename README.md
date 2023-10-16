@@ -3,7 +3,7 @@ A 'Search' service for scale
 
 Current status - (Currently, testing for 5 million items)
 
-## Here, the search service is being built to return the 'Top N most searched' items/products from any domain the search is applicable in.
+Target result of this service -  ##To return the 'Top N most searched' items/products from any domain the search is applicable in.
 
 
 ### Details
